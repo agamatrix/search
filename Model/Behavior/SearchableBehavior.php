@@ -121,7 +121,7 @@ class SearchableBehavior extends ModelBehavior {
 /**
  * Generates a query string using the same API Model::find() uses, calling the beforeFind process for the model
  *
- * 
+ *
  * @param string $type Type of find operation (all / first / count / neighbors / list / threaded)
  * @param array $query Option fields (conditions / fields / joins / limit / offset / order / page / group / callbacks)
  * @return array Array of records
@@ -145,7 +145,7 @@ class SearchableBehavior extends ModelBehavior {
 		$assocs = array('belongsTo', 'hasOne', 'hasMany', 'hasAndBelongsToMany');
 		$unbind = array();
 		foreach ($assocs as $assoc) {
-		  $unbind[$assoc] = array_keys($Model->{$assoc});
+			$unbind[$assoc] = array_keys($Model->{$assoc});
 		}
 		$Model->unbindModel($unbind, $reset);
 	}
@@ -163,7 +163,7 @@ class SearchableBehavior extends ModelBehavior {
 		}
 		return $this->_addCondLike($Model, $conditions, $data, $field);
 	}
-	
+
 	/**
 	 * replace substitions with original wildcards
 	 * but first, escape the original wildcards in the text to use them as normal search text
@@ -186,7 +186,7 @@ class SearchableBehavior extends ModelBehavior {
 			$substFrom[] = $options['wildcardOne'];
 			$substTo[] = '_';
 		}
-		if (!empty($from)) {	
+		if (!empty($from)) {
 			/* escape first */
 			$data = str_replace($from, $to, $data);
 			/* replace wildcards */
@@ -194,7 +194,7 @@ class SearchableBehavior extends ModelBehavior {
 		}
 		return $data;
 	}
-	
+
 	/**
 	 * return the current chars for querying LIKE statements on this model
 	 * @param Model $Model Reference to the model
@@ -227,13 +227,13 @@ class SearchableBehavior extends ModelBehavior {
 		if (empty($data[$field['name']])) {
 			return $conditions;
 		}
-		
+
 		$cond = array();
 		foreach ($fieldNames as $fieldName) {
 			if (strpos($fieldName, '.') === false) {
 				$fieldName = $Model->alias . '.' . $fieldName;
 			}
-			
+
 			if ($field['before'] === true) {
 				$field['before'] = '%';
 			}
@@ -251,8 +251,9 @@ class SearchableBehavior extends ModelBehavior {
 				$from[] = '_';
 				$to[] = '\_';
 			}
-			if (!empty($from)) {	
-				$data[$field['name']] = str_replace($from, $to, $data[$field['name']]);
+			$value = $data[$field['name']];
+			if (!empty($from)) {
+				$value = str_replace($from, $to, $value);
 			}
 			if ($field['before'] === false && $field['after'] === false) {
 				if ($options['wildcardAny'] != '%') {
@@ -262,11 +263,11 @@ class SearchableBehavior extends ModelBehavior {
 				if ($options['wildcardOne'] != '_') {
 					$substFrom[] = $options['wildcardOne'];
 					$substTo[] = '_';
-				}				
-				$data[$field['name']] = str_replace($substFrom, $substTo, $data[$field['name']]);
+				}
+				$value = str_replace($substFrom, $substTo, $value);
 			}
-		
-			$cond[$fieldName . " LIKE"] = $field['before'] . $data[$field['name']] . $field['after'];
+
+			$cond[$fieldName . " LIKE"] = $field['before'] . $value . $field['after'];
 		}
 		if (count($cond) > 1) {
 			if (isset($conditions['OR'])) {
