@@ -173,6 +173,9 @@ class PrgComponent extends Component {
 				$tmp = str_replace(array('/', '='), array('-', '_'), $tmp);
 				$data[$field['field']] = $tmp;
 			}
+			if (!empty($field['empty']) && isset($data[$field['field']]) && $data[$field['field']] == '') {
+				unset($data[$field['field']]);
+			}
 		}
 		return $data;
 	}
@@ -316,7 +319,7 @@ class PrgComponent extends Component {
 		if (isset($arg['preset']) && !$arg['preset']) {
 			return false;
 		}
-		if (!isset($arg['type']) || $arg['type'] != 'value') {
+		if (!isset($arg['type'])) {
 			$arg['type'] = 'value';
 		}
 		if (isset($arg['name']) || is_numeric($key)) {
@@ -328,6 +331,7 @@ class PrgComponent extends Component {
 		if (!empty($arg['encode'])) {
 			$res['encode'] = $arg['encode'];
 		}
+		$res = array_merge($arg, $res);
 		return $res;
 	}
 	
