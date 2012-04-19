@@ -1,12 +1,19 @@
 # Search Plugin for CakePHP #
 
-Version 1.1
+Version 1.1.1
 
 The Search plugin allows you to make any kind of data searchable, enabling you to implement a robust searching rapidly.
 
 The Search plugin is an easy way to include search into your application, and provides you with a paginate-able search in any controller.
 
 It supports simple methods to search inside models using strict and non-strict comparing, but also allows you to implement any complex type of searching.
+
+## Changes in 1.1.1 ##
+
+* The key is now the value/field. the old syntax is still working, though, for BC.
+* Like statements accept an array for multiple fields and handle wildcards better (custom ones supported, too)
+* Works with 2.1
+* Encode/decode fix
 
 ## Sample of usage ##
 
@@ -21,14 +28,15 @@ Model code:
 		public $hasAndBelongsToMany = array('Tag' => array('with' => 'Tagged'));
 
 		public $filterArgs = array(
-			array('name' => 'title', 'type' => 'like'),
-			array('name' => 'status', 'type' => 'value'),
-			array('name' => 'blog_id', 'type' => 'value'),
-			array('name' => 'search', 'type' => 'like', 'field' => 'Article.description'),
-			array('name' => 'range', 'type' => 'expression', 'method' => 'makeRangeCondition', 'field' => 'Article.views BETWEEN ? AND ?'),
-			array('name' => 'username', 'type' => 'like', 'field' => 'User.username'),
-			array('name' => 'tags', 'type' => 'subquery', 'method' => 'findByTags', 'field' => 'Article.id'),
-			array('name' => 'filter', 'type' => 'query', 'method' => 'orConditions'),
+			'title' => array('type' => 'like'),
+			'status' => array('type' => 'value'),
+			'blog_id' => array('type' => 'value'),
+			'search' => array('type' => 'like', 'field' => 'Article.description'),
+			'range' => array('type' => 'expression', 'method' => 'makeRangeCondition', 'field' => 'Article.views BETWEEN ? AND ?'),
+			'username' => array('type' => 'like', 'field' => array('User.username', 'UserInfo.first_name')),
+			'tags' => array('type' => 'subquery', 'method' => 'findByTags', 'field' => 'Article.id'),
+			'filter' => array('type' => 'query', 'method' => 'orConditions'),
+			'enhanced_search'=> array('type' => 'like', 'encode'=>true, 'before'=>false, 'after'=>false, 'field'=>array('ThisModel.name','OtherModel.name')),
 		);
 
 		public function findByTags($data = array()) {
@@ -58,10 +66,25 @@ Associated snippet for the controller class:
 	class ArticlesController extends AppController {
 		public $components = array('Search.Prg');
 
+		public $presetVars = true; // using the model configuration
+		
+		public function find() {
+			$this->Prg->commonProcess();
+			$this->paginate['conditions'] = $this->Article->parseCriteria($this->passedArgs);
+			$this->set('articles', $this->paginate());
+		}
+	}
+
+or verbose (and overriding the model configuration):
+
+	class ArticlesController extends AppController {
+		public $components = array('Search.Prg');
+
 		public $presetVars = array(
-			array('field' => 'title', 'type' => 'value'),
-			array('field' => 'status', 'type' => 'checkbox'),
-			array('field' => 'blog_id', 'type' => 'lookup', 'formField' => 'blog_input', 'modelField' => 'title', 'model' => 'Blog'));
+			'title' => array('type' => 'value'),
+			'status' => array('type' => 'checkbox'),
+			'blog_id' => array('type' => 'lookup', 'formField' => 'blog_input', 'modelField' => 'title', 'model' => 'Blog')
+		);
 
 		public function find() {
 			$this->Prg->commonProcess();
@@ -79,7 +102,7 @@ The `find.ctp` view is the same as `index.ctp` with the addition of the search f
 	echo $this->Form->input('blog_id', array('div' => false, 'options' => $blogs));
 	echo $this->Form->input('status', array('div' => false, 'multiple' => 'checkbox', 'options' => array('open', 'closed')));
 	echo $this->Form->input('username', array('div' => false));
-	echo $this->Form->submit(__('Search', true), array('div' => false));
+	echo $this->Form->submit(__('Search'), array('div' => false));
 	echo $this->Form->end();
 
 In this example on model level shon example of search by OR condition. For this purpose defined method orConditions and added filter arg `array('name' => 'filter', 'type' => 'query', 'method' => 'orConditions')`.
@@ -119,7 +142,7 @@ Most importantly the component acts as the glue between your app and the searcha
 
 ### Controller configuration ###
 
-All search fields parameters need to configure in the Controller::presetVars array. 
+All search fields parameters need to configure in the Controller::presetVars array (if you didn't yet in the model). 
 
 Each preset variable is a array record that contains next keys:
   
@@ -132,7 +155,9 @@ Each preset variable is a array record that contains next keys:
 * formField  - field in the form that contain text, and will populated using model.modelField based on field value.
 * modelField - field in the model that contain text, and will used to fill formField in view.
 * encode     - boolean, by default false. If you want to use search strings in URL's with special characters like % or / you need to use encoding
-  
+
+Note: Since 1.2 those can also be configured in the model itself (to keep it DRY). You can then set `$presetVar = true` then in the controller to use the model ones (see the example above). You can still use define the keys here where you want to overwrite certain settings.
+
 ### Prg::commonProcess method usage ###
 
 The `commonProcess` method defined in the Prg component allows you to inject search in any index controller with just 1-2 lines of additional code.
@@ -149,7 +174,7 @@ Additional options parameters:
 ## Requirements ##
 
 * PHP version: PHP 5.2+
-* CakePHP version: Cakephp 1.3 Stable
+* CakePHP version: Cakephp 2.x Stable
 
 ## Support ##
 
