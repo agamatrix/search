@@ -8,7 +8,7 @@ The Search plugin is an easy way to include search into your application, and pr
 
 It supports simple methods to search inside models using strict and non-strict comparing, but also allows you to implement any complex type of searching.
 
-## Changes in 1.1.1 ##
+## Changes in 1.1.1 (by Mark Scherer) ##
 
 * The key is now the value/field. the old syntax is still working, though, for BC.
 * Like statements accept an array for multiple fields and handle wildcards better (custom ones supported, too)
@@ -16,7 +16,7 @@ It supports simple methods to search inside models using strict and non-strict c
 * Encode/decode fix
 * Empty key for shorter urls
 
-## Sample of usage ##
+## Sample usage ##
 
 An example of how to implement complex searching in your application.
 
@@ -37,7 +37,7 @@ Model code:
 			'username' => array('type' => 'like', 'field' => array('User.username', 'UserInfo.first_name')),
 			'tags' => array('type' => 'subquery', 'method' => 'findByTags', 'field' => 'Article.id'),
 			'filter' => array('type' => 'query', 'method' => 'orConditions'),
-			'enhanced_search'=> array('type' => 'like', 'encode'=>true, 'before'=>false, 'after'=>false, 'field'=>array('ThisModel.name','OtherModel.name')),
+			'enhanced_search' => array('type' => 'like', 'encode' => true, 'before' => false, 'after' => false, 'field' => array('ThisModel.name','OtherModel.name')),
 		);
 
 		public function findByTags($data = array()) {
@@ -107,6 +107,19 @@ The `find.ctp` view is the same as `index.ctp` with the addition of the search f
 	echo $this->Form->end();
 
 In this example on model level shon example of search by OR condition. For this purpose defined method orConditions and added filter arg `array('name' => 'filter', 'type' => 'query', 'method' => 'orConditions')`.
+
+## Advanced usage ##
+
+		public $filterArgs = array(
+			// match results with `%searchstring`:
+			'search_exact_beginning' => array('type' => 'like', 'encode' => true, 'before' => true, 'after' => false),
+			// match results with `searchstring%`:
+			'search_exact_end' => array('type' => 'like', 'encode' => true, 'before' => false, 'after' => true),
+			// match results with `__searchstring%`:
+			'search_special_like' => array('type' => 'like', 'encode' => true, 'before' => '__', 'after' => '%'),
+			// use custom wildcards in the frontend (instead of * and ?):
+			'search_custom_like' => array('type' => 'like', 'encode' => true, 'before' => false, 'after' => false, 'wildcardAny' => '%', 'wildcardOne' => '_'),
+		);
 
 ## Behavior and Model configuration ##
 
