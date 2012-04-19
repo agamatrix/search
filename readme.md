@@ -14,6 +14,7 @@ It supports simple methods to search inside models using strict and non-strict c
 * Like statements accept an array for multiple fields and handle wildcards better (custom ones supported, too)
 * Works with 2.1
 * Encode/decode fix
+* Empty key for shorter urls
 
 ## Sample of usage ##
 
@@ -155,8 +156,10 @@ Each preset variable is a array record that contains next keys:
 * formField  - field in the form that contain text, and will populated using model.modelField based on field value.
 * modelField - field in the model that contain text, and will used to fill formField in view.
 * encode     - boolean, by default false. If you want to use search strings in URL's with special characters like % or / you need to use encoding
+* empty     - boolean, by default false. If you want to omit this field in the PRG url if no value has been given (shorter urls).
 
-Note: Since 1.2 those can also be configured in the model itself (to keep it DRY). You can then set `$presetVar = true` then in the controller to use the model ones (see the example above). You can still use define the keys here where you want to overwrite certain settings.
+Note: Since 1.1.1 those can also be configured in the model itself (to keep it DRY). You can then set `$presetVar = true` then in the controller to use the model ones (see the example above). You can still use define the keys here where you want to overwrite certain settings.
+It is recommended to always use `encode => true` in combination with search strings (custom text input) to avoid url-breaking.
 
 ### Prg::commonProcess method usage ###
 
