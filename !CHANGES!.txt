@@ -4,6 +4,8 @@ SearchableBehavior:
 	formatLike() added (now has like search functionality)
 
 	like before/after enhancement
+
+	like and/or connectors: `x+y,z` possible to match `(x && y) || z`
 	
 	wildcard enhancement (one ~ and any *)
 

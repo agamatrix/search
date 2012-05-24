@@ -112,7 +112,7 @@ class PrgComponent extends Component {
 		$args = $this->controller->passedArgs;
 
 		foreach ($this->controller->presetVars as $field) {
-			if ($this->encode == true || isset($field['encode']) && $field['encode'] == true) {
+			if ($this->encode || !empty($field['encode'])) {
 				// Its important to set it also back to the controllers passed args!
 				if (isset($args[$field['field']])) {
 					$fieldContent = $args[$field['field']];
@@ -139,7 +139,7 @@ class PrgComponent extends Component {
 				}
 			}
 
-			if ($field['type'] == 'value') {
+			if (in_array($field['type'], array('value', 'like'))) {
 				if (isset($args[$field['field']])) {
 					$data[$model][$field['field']] = $args[$field['field']];
 				}
@@ -166,7 +166,7 @@ class PrgComponent extends Component {
 				$data[$field['field']] = $values;
 			}
 
-			if ($this->encode == true || isset($field['encode']) && $field['encode'] == true) {
+			if ($this->encode || !empty($field['encode'])) {
 				$fieldContent = $data[$field['field']];
 				$tmp = base64_encode($fieldContent);
 				//replace chars base64 uses that would mess up the url
@@ -268,7 +268,7 @@ class PrgComponent extends Component {
 			$this->controller->request->data = $params;
 		}
 		*/
-		//$this->controller->request->is('post') && 
+		//$this->controller->request->is('post') &&
 		if (!empty($this->controller->data)) {
 			$this->controller->{$modelName}->data = $this->controller->data;
 			$valid = true;

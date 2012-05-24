@@ -398,6 +398,24 @@ class SearchableTest extends CakeTestCase {
 			array('OR'=>array('Article.descr LIKE' => 'Second%', 'Article.comment LIKE' => 'Second%'))			
 		);
 		$this->assertEquals($result, $expected);
+		
+		# wildcards and and/or connectors
+		$this->Article->filterArgs = array(
+			array('name' => 'faketitle', 'type' => 'like', 'field' => 'Article.title', 'connectorAnd'=>'+', 'connectorOr'=>',')
+		);
+		$data = array('faketitle' => 'First%+Second%, Third%');
+		$result = $this->Article->parseCriteria($data);
+		$expected = array(0 => array('OR'=>array(
+			array('AND' => array(
+				array('Article.title LIKE' => '%First\%%'),
+				array('Article.title LIKE' => '%Second\%%'),
+			)),
+			array('AND' => array(
+				array('Article.title LIKE' => '%Third\%%')
+			)),
+		)));
+		$this->assertEquals($result, $expected);
+		
 	}
 
 /**

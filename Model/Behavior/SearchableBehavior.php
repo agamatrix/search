@@ -29,13 +29,17 @@ class SearchableBehavior extends ModelBehavior {
  * - wildcardAny: the character used instead of % (% is a normal character then)
  * - wildcardOne: the character used instead of _ (_ is a normal character then)
  * - like: auto add % wildcard to beginning, end or both (both false => user can enter wildcards himself)
+ * - connectorAnd: the character between search terms to specify an "and" relationship (binds stronger than or, similar to * and + in math)
+ * - connectorOr: the character between search terms to specify an "or" relationship
  *
  * @var string
  */
 	protected $_defaults = array(
 		'wildcardAny' => '*', //on windows/unix/mac/google/... thats the default one
 		'wildcardOne' => '?', //on windows/unix/mac thats the default one
-		'like' => array('before'=>true, 'after'=>true)
+		'like' => array('before'=>true, 'after'=>true),
+		'connectorAnd' => null,
+		'connectorOr' => null,
 	);
 
 /**
@@ -46,7 +50,7 @@ class SearchableBehavior extends ModelBehavior {
  */
 	public function setup(Model $Model, $config = array()) {
 		$this->settings[$Model->alias] = array_merge($this->_defaults, $config);
-		if (!isset($Model->filterArgs)) {
+		if (empty($Model->filterArgs)) {
 			return;
 		}
 		foreach ($Model->filterArgs as $key => $val) {
@@ -266,8 +270,12 @@ class SearchableBehavior extends ModelBehavior {
 				}
 				$value = str_replace($substFrom, $substTo, $value);
 			}
-
-			$cond[$fieldName . " LIKE"] = $field['before'] . $value . $field['after'];
+			
+			if (!empty($field['connectorAnd']) || !empty($field['connectorOr'])) {
+				$cond[] = $this->_connectedLike($value, $field, $fieldName);
+			} else {
+				$cond[$fieldName . " LIKE"] = $field['before'] . $value . $field['after'];
+			}
 		}
 		if (count($cond) > 1) {
 			if (isset($conditions['OR'])) {
@@ -279,6 +287,22 @@ class SearchableBehavior extends ModelBehavior {
 			$conditions = am($conditions, $cond);
 		}
 		return $conditions;
+	}
+	
+	protected function _connectedLike($value, $field, $fieldName) {
+		$or = array();
+		$orValues  = String::tokenize($value, $field['connectorOr']);
+		foreach ($orValues as $orValue) {
+			$andValues = String::tokenize($orValue, $field['connectorAnd']);
+			$and = array();
+			foreach ($andValues as $andValue) {
+				$and[] = array($fieldName . " LIKE" => $field['before'] . $andValue . $field['after']);
+			}
+			
+			$or[] = array('AND'=>$and);
+		}
+		
+		return array('OR'=>$or);
 	}
 
 /**
