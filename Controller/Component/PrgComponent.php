@@ -16,13 +16,14 @@
  * @subpackage	plugins.search.controllers.components
  */
 App::uses('Component', 'Controller');
+App::uses('Set', 'Utility');
 
 class PrgComponent extends Component {
 
 /**
  * Actions used to fetch the post data
  *
- * Maps the action that takes the post data and processes it by using this 
+ * Maps the action that takes the post data and processes it by using this
  * component and maps it to another action that is accessed by a redirect which
  * has the post data attached as get data now
  *
@@ -46,7 +47,19 @@ class PrgComponent extends Component {
  * @var array
  */
 	protected $_defaults = array(
-		'commonProcess' => array()
+		'commonProcess' => array(
+			'formName' => null,
+			'keepPassed' => true,
+			'action' => null,
+			'modelMethod' => 'validateSearch',
+			'allowedParams' => array(),
+			'paramType' => 'named',
+			'filterEmpty' => false
+		),
+		'presetForm' => array(
+			'model' => null,
+			'paramType' => 'named'
+		)
 	);
 
 /**
@@ -79,7 +92,11 @@ class PrgComponent extends Component {
 		}
 		foreach ($this->controller->presetVars as $key => $field) {
 			if ($field === true) {
-				$field = $this->_parseFromModel($this->controller->$model->filterArgs[$key], $key);
+				if (isset($this->controller->$model->filterArgs[$key])) {
+					$field = $this->_parseFromModel($this->controller->$model->filterArgs[$key], $key);
+				} else {
+					$field = array('type' => 'value');
+				}
 			}
 			if (!isset($field['field'])) {
 				$field['field'] = $key;
@@ -105,12 +122,20 @@ class PrgComponent extends Component {
  * 1 use field, model, formField, and modelField
  * 2, 3 need only field parameter
  *
- * @param array
+ * @param array $options
  */
-	public function presetForm($model) {
-		$data = array($model => array());
-		$args = $this->controller->passedArgs;
+	public function presetForm($options) {
+		if (!is_array($options)) {
+			$options = array('model' => $options);
+		}
+		extract(Set::merge($this->_defaults['presetForm'], $options));
 
+		$data = array($model => array());
+		if ($paramType == 'named') {
+			$args = $this->controller->passedArgs;
+		} else {
+			$args = $this->controller->request->query;
+		}
 		foreach ($this->controller->presetVars as $field) {
 			if ($this->encode || !empty($field['encode'])) {
 				// Its important to set it also back to the controllers passed args!
@@ -152,7 +177,7 @@ class PrgComponent extends Component {
 
 /**
  * Restores form params for checkboxs and other url encoded params
- * 
+ *
  * @param array
  */
 	public function serializeParams(&$data) {
@@ -204,9 +229,9 @@ class PrgComponent extends Component {
 	}
 
 /**
- * Exclude 
- * 
- * Removes key/values from $array based on $exclude 
+ * Exclude
+ *
+ * Removes key/values from $array based on $exclude
  *
  * @param array Array of data to be filtered
  * @param array Array of keys to exclude from other $array
@@ -224,7 +249,7 @@ class PrgComponent extends Component {
 
 /**
  * Common search method
- * 
+ *
  * Handles processes common to all PRG forms
  *
  * - Handles validation of post data
@@ -236,8 +261,9 @@ class PrgComponent extends Component {
  * @param array $options Optional parameters:
  *  - string formName - name of the form involved in the prg
  *  - string action - The action to redirect to. Defaults to the current action
- *  - mixed modelMethod - If not false a string that is the model method that will be used to process the data 
+ *  - mixed modelMethod - If not false a string that is the model method that will be used to process the data
  *  - array allowedParams - An array of additional top level route params that should be included in the params processed
+ *  - string paramType - 'named' if you want to used named params or 'querystring' is you want to use query string
  * @return void
  */
 	public function commonProcess($modelName = null, $options = array()) {
@@ -246,7 +272,6 @@ class PrgComponent extends Component {
 			'keepPassed' => true,
 			'action' => null,
 			'modelMethod' => 'validateSearch',
-			'persistent' => false, //TODO
 			'allowedParams' => array());
 		$defaults = Set::merge($defaults, $this->_defaults['commonProcess']);
 		extract(Set::merge($defaults, $options));
@@ -262,13 +287,7 @@ class PrgComponent extends Component {
 		if (empty($action)) {
 			$action = $this->controller->action;
 		}
-		/*
-		if ($persistent && !$this->controller->request->is('post')) {
-			$params = (array)$this->controller->Session->read('Search.'.$modelName.'.'.$formName.'.'.$action);
-			$this->controller->request->data = $params;
-		}
-		*/
-		//$this->controller->request->is('post') &&
+		
 		if (!empty($this->controller->data)) {
 			$this->controller->{$modelName}->data = $this->controller->data;
 			$valid = true;
@@ -277,44 +296,50 @@ class PrgComponent extends Component {
 			}
 
 			if ($valid) {
-				$passed = $this->controller->request->params['pass'];
-				$params = $this->controller->data[$modelName];
-				$params = $this->exclude($params, array());
-
+				$params = $this->controller->request->params['named'];
 				if ($keepPassed) {
-					$params = array_merge($passed, $params);
+					$params = array_merge($this->controller->request->params['pass'], $params);
 				}
 
-				$this->serializeParams($params);
-				$this->connectNamed($params, array());
+				$searchParams = $this->controller->data[$modelName];
+				$searchParams = $this->exclude($searchParams, array());
+				if ($filterEmpty) {
+					$searchParams = Set::filter($searchParams);
+				}
+
+				$this->serializeParams($searchParams);
+
+				if ($paramType == 'named') {
+					$params = array_merge($params, $searchParams);
+					$this->connectNamed($params, array());
+				} else {
+					$this->connectNamed($params, array());
+					$params['?'] = array_merge($this->controller->request->query, $searchParams);
+				}
+
 				$params['action'] = $action;
-				$params = array_merge($this->controller->request->params['named'], $params);
 
 				foreach ($allowedParams as $key) {
 					if (isset($this->controller->request->params[$key])) {
 						$params[$key] = $this->controller->request->params[$key];
 					}
 				}
-				/*
-				if ($persistent && $this->controller->request->is('post')) {
-					$this->controller->Session->write('Search.'.$modelName.'.'.$formName.'.'.$action, $params);
-				}
-				if ($this->controller->request->is('post')) {
-					$this->controller->redirect($params);
-				}
-				*/
+
 				$this->controller->redirect($params);
 			} else {
 				$this->controller->Session->setFlash(__d('search', 'Please correct the errors below.'));
 			}
-		}
-
-		if (empty($this->controller->data) && !empty($this->controller->passedArgs)) {
+		} elseif (($paramType == 'named' && !empty($this->controller->passedArgs)) ||
+				($paramType == 'querystring' && !empty($this->controller->request->query))
+			) {
 			$this->connectNamed($this->controller->passedArgs, array());
-			$this->presetForm($formName);
+			$this->presetForm(array('model' => $formName, 'paramType' => $paramType));
 		}
 	}
 	
+	/**
+	 * @return array 
+	 */
 	protected function _parseFromModel($arg, $key = null) {
 		if (isset($arg['preset']) && !$arg['preset']) {
 			return false;
@@ -327,7 +352,7 @@ class PrgComponent extends Component {
 		} else {
 			$field = $key; 
 		}
-		$res = array('field'=>$field, 'type'=>$arg['type']);
+		$res = array('field' => $field, 'type' => $arg['type']);
 		if (!empty($arg['encode'])) {
 			$res['encode'] = $arg['encode'];
 		}
