@@ -8,6 +8,7 @@
  * @copyright Copyright 2009-2010, Cake Development Corporation (http://cakedc.com)
  * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
+App::uses('ModelBehavior', 'Model');
 
 /**
  * Searchable behavior
@@ -32,7 +33,7 @@ class SearchableBehavior extends ModelBehavior {
  * - connectorAnd: the character between search terms to specify an "and" relationship (binds stronger than or, similar to * and + in math)
  * - connectorOr: the character between search terms to specify an "or" relationship
  *
- * @var string
+ * @var array
  */
 	protected $_defaults = array(
 		'wildcardAny' => '*', //on windows/unix/mac/google/... thats the default one
@@ -57,6 +58,9 @@ class SearchableBehavior extends ModelBehavior {
 			if (!isset($val['name'])) {
 				$Model->filterArgs[$key]['name'] = $key;
 			}
+			if (!isset($val['field'])) {
+				$Model->filterArgs[$key]['field'] = $Model->filterArgs[$key]['name'];
+			}
 		}
 	}
 
@@ -66,14 +70,14 @@ class SearchableBehavior extends ModelBehavior {
  * we are just going to test if the params are legit
  *
  * @param array $data Criteria of key->value pairs from post/named parameters
- * @return array Array of conditions that express the conditions needed for the search.
+ * @return array Array of conditions that express the conditions needed for the search
  */
 	public function parseCriteria(Model $Model, $data) {
 		$conditions = array();
 		foreach ($Model->filterArgs as $field) {
-			if (in_array($field['type'], array('string', 'like'))) {
+			if (in_array($field['type'], array('like'))) {
 				$this->_addCondLike($Model, $conditions, $data, $field);
-			} elseif (in_array($field['type'], array('int', 'value'))) {
+			} elseif (in_array($field['type'], array('string', 'text', 'int', 'float', 'value'))) {
 				$this->_addCondValue($Model, $conditions, $data, $field);
 			} elseif ($field['type'] == 'expression') {
 				$this->_addCondExpression($Model, $conditions, $data, $field);
@@ -154,12 +158,12 @@ class SearchableBehavior extends ModelBehavior {
 		$Model->unbindModel($unbind, $reset);
 	}
 
-	/**
-	 * for custom queries inside the model
-	 * example "makePhoneCondition": $cond = array('OR' => array_merge($this->condLike('cell_number', $filter), $this->condLike('landline_number', $filter, array('before' => false))));
-	 * 
-	 * @return array of conditions
-	 */
+/**
+ * For custom queries inside the model
+ * example "makePhoneCondition": $cond = array('OR' => array_merge($this->condLike('cell_number', $filter), $this->condLike('landline_number', $filter, array('before' => false))));
+ *
+ * @return array of conditions
+ */
 	public function condLike(Model $Model, $name, $data, $field = array()) {
 		$conditions = array();
 		$field['name'] = $name;
@@ -169,13 +173,14 @@ class SearchableBehavior extends ModelBehavior {
 		return $this->_addCondLike($Model, $conditions, $data, $field);
 	}
 
-	/**
-	 * replace substitions with original wildcards
-	 * but first, escape the original wildcards in the text to use them as normal search text
-	 * @param Model $Model
-	 * @param string $queryLikeString
-	 * @return string $queryLikeString
-	 */
+/**
+ * Replace substitions with original wildcards
+ * but first, escape the original wildcards in the text to use them as normal search text
+ *
+ * @param Model $Model
+ * @param string $queryLikeString
+ * @return string $queryLikeString
+ */
 	public function formatLike(Model $Model, $data, $options = array()) {
 		$options = am($this->settings[$Model->alias], $options);
 		$from = $to = $substFrom = $substTo = array();
@@ -200,11 +205,12 @@ class SearchableBehavior extends ModelBehavior {
 		return $data;
 	}
 
-	/**
-	 * return the current chars for querying LIKE statements on this model
-	 * @param Model $Model Reference to the model
-	 * @return array, [one=>..., any=>...]
-	 */
+/**
+ * Return the current chars for querying LIKE statements on this model
+ *
+ * @param Model $Model Reference to the model
+ * @return array, [one=>..., any=>...]
+ */
 	public function getWildcards(Model $Model, $options = array()) {
 		$options = am($this->settings[$Model->alias], $options);
 		return array('any' => $options['wildcardAny'], 'one' => $options['wildcardOne']);
@@ -220,10 +226,8 @@ class SearchableBehavior extends ModelBehavior {
  * @return array of conditions
  */
 	protected function _addCondLike(Model $Model, &$conditions, $data, $field) {
-		$fieldName = $field['name'];
-		if (isset($field['field'])) {
-			$fieldName = $field['field'];
-		}
+		$fieldName = $field['field'];
+		
 		$fieldNames = (array)$fieldName;
 		if (!is_array($this->settings[$Model->alias]['like'])) {
 			$this->settings[$Model->alias]['like'] = array('before' => $this->settings[$Model->alias]['like'], 'after' => $this->settings[$Model->alias]['like']);
@@ -271,7 +275,7 @@ class SearchableBehavior extends ModelBehavior {
 				}
 				$value = str_replace($substFrom, $substTo, $value);
 			}
-			
+
 			if (!empty($field['connectorAnd']) || !empty($field['connectorOr'])) {
 				$cond[] = $this->_connectedLike($value, $field, $fieldName);
 			} else {
@@ -289,7 +293,7 @@ class SearchableBehavior extends ModelBehavior {
 		}
 		return $conditions;
 	}
-	
+
 	protected function _connectedLike($value, $field, $fieldName) {
 		$or = array();
 		$orValues  = String::tokenize($value, $field['connectorOr']);
@@ -299,10 +303,10 @@ class SearchableBehavior extends ModelBehavior {
 			foreach ($andValues as $andValue) {
 				$and[] = array($fieldName . " LIKE" => $field['before'] . $andValue . $field['after']);
 			}
-			
+
 			$or[] = array('AND' => $and);
 		}
-		
+
 		return array('OR' => $or);
 	}
 
@@ -316,15 +320,26 @@ class SearchableBehavior extends ModelBehavior {
  * @return array of conditions
  */
 	protected function _addCondValue(Model $Model, &$conditions, $data, $field) {
-		$fieldName = $field['name'];
-		if (isset($field['field'])) {
-			$fieldName = $field['field'];
+		$fieldNames = (array)$field['field'];
+		$fieldValue = isset($data[$field['name']]) ? $data[$field['name']] : null;
+		
+		$cond = array();
+		foreach ($fieldNames as $fieldName) {
+			if (strpos($fieldName, '.') === false) {
+				$fieldName = $Model->alias . '.' . $fieldName;
+			}
+			if (!empty($fieldValue) || (String)$fieldValue !== '') {
+				$cond[$fieldName] = $fieldValue;
+			}
 		}
-		if (strpos($fieldName, '.') === false) {
-			$fieldName = $Model->alias . '.' . $fieldName;
-		}
-		if (!empty($data[$field['name']]) || (isset($data[$field['name']]) && ($data[$field['name']] === 0 || $data[$field['name']] === '0'))) {
-			$conditions[$fieldName] = $data[$field['name']];
+		if (count($cond) > 1) {
+			if (isset($conditions['OR'])) {
+				$conditions[]['OR'] = $cond;
+			} else {
+				$conditions['OR'] = $cond;
+			}
+		} else {
+			$conditions = am($conditions, $cond);
 		}
 		return $conditions;
 	}
@@ -339,7 +354,7 @@ class SearchableBehavior extends ModelBehavior {
  * @return array of conditions modified by this method
  */
 	protected function _addCondQuery(Model $Model, &$conditions, $data, $field) {
-		if ((method_exists($Model, $field['method']) || $this->_checkBehaviorMethods($Model, $field['method'])) && (!empty($field['allowEmpty']) || !empty($data[$field['name']]) || (isset($data[$field['name']]) && ($data[$field['name']] === 0 || $data[$field['name']] === '0')))) {
+		if ((method_exists($Model, $field['method']) || $this->_checkBehaviorMethods($Model, $field['method'])) && (!empty($field['allowEmpty']) || !empty($data[$field['name']]) || (isset($data[$field['name']]) && (String)$data[$field['name']] !== ''))) {
 			$conditionsAdd = $Model->{$field['method']}($data, $field);
 			// if our conditions function returns something empty, nothing to merge in
 			if (!empty($conditionsAdd)) {
@@ -359,8 +374,11 @@ class SearchableBehavior extends ModelBehavior {
  * @return array of conditions modified by this method
  */
 	protected function _addCondExpression(Model $Model, &$conditions, $data, $field) {
-		$fieldName = $field['field'];
-		if ((method_exists($Model, $field['method']) || $this->_checkBehaviorMethods($Model, $field['method'])) && (!empty($field['allowEmpty']) || !empty($data[$field['name']]) || (isset($data[$field['name']]) && ($data[$field['name']] === 0 || $data[$field['name']] === '0')))) {
+		$fieldName = $field['name'];
+		if (isset($field['field'])) {
+			$fieldName = $field['field'];
+		}
+		if ((method_exists($Model, $field['method']) || $this->_checkBehaviorMethods($Model, $field['method'])) && (!empty($field['allowEmpty']) || !empty($data[$field['name']]) || (isset($data[$field['name']]) && (String)$data[$field['name']] !== ''))) {
 			$fieldValues = $Model->{$field['method']}($data, $field);
 			if (!empty($conditions[$fieldName]) && is_array($conditions[$fieldName])) {
 				$conditions[$fieldName] = array_unique(array_merge(array($conditions[$fieldName]), array($fieldValues)));
@@ -381,8 +399,11 @@ class SearchableBehavior extends ModelBehavior {
  * @return array of conditions modified by this method
  */
 	protected function _addCondSubquery(Model $Model, &$conditions, $data, $field) {
-		$fieldName = $field['field'];
-		if ((method_exists($Model, $field['method']) || $this->_checkBehaviorMethods($Model, $field['method'])) && (!empty($field['allowEmpty']) || !empty($data[$field['name']]) || (isset($data[$field['name']]) && ($data[$field['name']] === 0 || $data[$field['name']] === '0')))) {
+		$fieldName = $field['name'];
+		if (isset($field['field'])) {
+			$fieldName = $field['field'];
+		}
+		if ((method_exists($Model, $field['method']) || $this->_checkBehaviorMethods($Model, $field['method'])) && (!empty($field['allowEmpty']) || !empty($data[$field['name']]) || (isset($data[$field['name']]) && (String)$data[$field['name']] !== ''))) {
 			$subquery = $Model->{$field['method']}($data, $field);
 			// if our subquery function returns something empty, nothing to merge in
 			if (!empty($subquery)) {
@@ -490,5 +511,5 @@ class SearchableBehavior extends ModelBehavior {
 		}
 		return $found;
 	}
-	
+
 }

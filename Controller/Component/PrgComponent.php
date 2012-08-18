@@ -74,19 +74,19 @@ class PrgComponent extends Component {
 		if (!isset($this->controller->presetVars)) {
 			$this->controller->presetVars = array();
 		}
-		
+
 		$model = $this->controller->modelClass;
 		if (!empty($settings['model'])) {
 			$model = $settings['model'];
 		}
-		
+
 		if ($this->controller->presetVars === true) {
 			// auto-set the presetVars based on search defitions in model
 			$this->controller->presetVars = array();
 			$filterArgs = $this->controller->$model->filterArgs;
 			foreach ($filterArgs as $key => $arg) {
-				if ($var = $this->_parseFromModel($arg, $key)) { 
-					$this->controller->presetVars[] = $var;
+				if ($args = $this->_parseFromModel($arg, $key)) {
+					$this->controller->presetVars[] = $args;
 				}
 			}
 		}
@@ -109,7 +109,7 @@ class PrgComponent extends Component {
  * Poplulates controller->data with allowed values from the named/passed get params
  *
  * Fields in $controller::$presetVars that have a type of 'lookup' the foreignKey value will be inserted
- * 
+ *
  * 1) 'lookup'
  *    Is used for autocomplete selectors
  *    For autocomplete we have hidden field with value and autocomplete text box
@@ -156,7 +156,7 @@ class PrgComponent extends Component {
 					$data[$model][$field['formField']] = $result[$searchModel][$field['modelField']];
 				}
 			}
-	
+
 			if ($field['type'] == 'checkbox') {
 				if (isset($args[$field['field']])) {
 					$values = split('\|', $args[$field['field']]);
@@ -164,7 +164,7 @@ class PrgComponent extends Component {
 				}
 			}
 
-			if (in_array($field['type'], array('value', 'like'))) {
+			if ($field['type'] == 'value') {
 				if (isset($args[$field['field']])) {
 					$data[$model][$field['field']] = $args[$field['field']];
 				}
@@ -179,6 +179,7 @@ class PrgComponent extends Component {
  * Restores form params for checkboxs and other url encoded params
  *
  * @param array
+ * @return array
  */
 	public function serializeParams(&$data) {
 		foreach ($this->controller->presetVars as $field) {
@@ -287,7 +288,7 @@ class PrgComponent extends Component {
 		if (empty($action)) {
 			$action = $this->controller->action;
 		}
-		
+
 		if (!empty($this->controller->data)) {
 			$this->controller->{$modelName}->data = $this->controller->data;
 			$valid = true;
@@ -336,21 +337,29 @@ class PrgComponent extends Component {
 			$this->presetForm(array('model' => $formName, 'paramType' => $paramType));
 		}
 	}
-	
-	/**
-	 * @return array 
-	 */
+
+/**
+ * Parse the configs from the Model (to keep things dry)
+ *
+ * @param array $arg
+ * @param mixed $key
+ * @return array
+ */
 	protected function _parseFromModel($arg, $key = null) {
 		if (isset($arg['preset']) && !$arg['preset']) {
-			return false;
+			return array();
 		}
-		if (!isset($arg['type'])) {
+		if (isset($arg['presetType'])) {
+			$arg['type'] = $arg['presetType'];
+			unset($arg['presetType']);
+		} elseif (!isset($arg['type']) || in_array($arg['type'], array('expression', 'query', 'subquery', 'like'))) {
 			$arg['type'] = 'value';
 		}
+		
 		if (isset($arg['name']) || is_numeric($key)) {
 			$field = $arg['name'];
 		} else {
-			$field = $key; 
+			$field = $key;
 		}
 		$res = array('field' => $field, 'type' => $arg['type']);
 		if (!empty($arg['encode'])) {
@@ -359,5 +368,5 @@ class PrgComponent extends Component {
 		$res = array_merge($arg, $res);
 		return $res;
 	}
-	
+
 }
