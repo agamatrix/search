@@ -1,11 +1,11 @@
 <?php
 /**
- * Copyright 2009-2010, Cake Development Corporation (http://cakedc.com)
+ * Copyright 2009-2013, Cake Development Corporation (http://cakedc.com)
  *
  * Licensed under The MIT License
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright Copyright 2009-2010, Cake Development Corporation (http://cakedc.com)
+ * @copyright Copyright 2009 - 2013, Cake Development Corporation (http://cakedc.com)
  * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 App::uses('ModelBehavior', 'Model');
@@ -46,10 +46,11 @@ class SearchableBehavior extends ModelBehavior {
 /**
  * Configuration of model
  *
- * @param AppModel $Model
+ * @param Model $Model
  * @param array $config
  */
 	public function setup(Model $Model, $config = array()) {
+		$this->_defaults = array_merge($this->_defaults, (array)Configure::read('Search.Searchable'));
 		$this->settings[$Model->alias] = array_merge($this->_defaults, $config);
 		if (empty($Model->filterArgs)) {
 			return;
@@ -69,6 +70,7 @@ class SearchableBehavior extends ModelBehavior {
  * parses the GET data and returns the conditions for the find('all')/paginate
  * we are just going to test if the params are legit
  *
+ * @param Model $Model
  * @param array $data Criteria of key->value pairs from post/named parameters
  * @return array Array of conditions that express the conditions needed for the search
  */
@@ -93,7 +95,8 @@ class SearchableBehavior extends ModelBehavior {
 /**
  * Validate search
  *
- * @param object Model
+ * @param Model $Model
+ * @param null $data
  * @return boolean always true
  */
 	public function validateSearch(Model $Model, $data = null) {
@@ -112,7 +115,7 @@ class SearchableBehavior extends ModelBehavior {
 /**
  * filter retrieving variables only that present in  Model::filterArgs
  *
- * @param object Model
+ * @param Model $Model
  * @param array $vars
  * @return array, filtered args
  */
@@ -129,7 +132,7 @@ class SearchableBehavior extends ModelBehavior {
 /**
  * Generates a query string using the same API Model::find() uses, calling the beforeFind process for the model
  *
- *
+ * @param Model $Model
  * @param string $type Type of find operation (all / first / count / neighbors / list / threaded)
  * @param array $query Option fields (conditions / fields / joins / limit / offset / order / page / group / callbacks)
  * @return array Array of records
@@ -146,7 +149,7 @@ class SearchableBehavior extends ModelBehavior {
 /**
  * Clear all associations
  *
- * @param AppModel $Model
+ * @param Model $Model
  * @param bool $reset
  */
 	public function unbindAllModels(Model $Model, $reset = false) {
@@ -162,6 +165,10 @@ class SearchableBehavior extends ModelBehavior {
  * For custom queries inside the model
  * example "makePhoneCondition": $cond = array('OR' => array_merge($this->condLike('cell_number', $filter), $this->condLike('landline_number', $filter, array('before' => false))));
  *
+ * @param Model $Model
+ * @param $name
+ * @param $data
+ * @param array $field
  * @return array of conditions
  */
 	public function condLike(Model $Model, $name, $data, $field = array()) {
@@ -177,11 +184,12 @@ class SearchableBehavior extends ModelBehavior {
 	}
 
 /**
- * Replace substitions with original wildcards
+ * Replace substitutions with original wildcards
  * but first, escape the original wildcards in the text to use them as normal search text
  *
  * @param Model $Model
- * @param string $queryLikeString
+ * @param $data
+ * @param array $options
  * @return string $queryLikeString
  */
 	public function formatLike(Model $Model, $data, $options = array()) {
@@ -212,6 +220,7 @@ class SearchableBehavior extends ModelBehavior {
  * Return the current chars for querying LIKE statements on this model
  *
  * @param Model $Model Reference to the model
+ * @param array $options
  * @return array, [one=>..., any=>...]
  */
 	public function getWildcards(Model $Model, $options = array()) {
@@ -222,7 +231,7 @@ class SearchableBehavior extends ModelBehavior {
 /**
  * Add Conditions based on fuzzy comparison
  *
- * @param AppModel $Model Reference to the model
+ * @param Model $Model Reference to the model
  * @param array $conditions existing Conditions collected for the model
  * @param array $data Array of data used in search query
  * @param array $field Field definition information
@@ -314,7 +323,7 @@ class SearchableBehavior extends ModelBehavior {
 /**
  * Add Conditions based on exact comparison
  *
- * @param AppModel $Model Reference to the model
+ * @param Model $Model Reference to the model
  * @param array $conditions existing Conditions collected for the model
  * @param array $data Array of data used in search query
  * @param array $field Field definition information
@@ -329,8 +338,15 @@ class SearchableBehavior extends ModelBehavior {
 			if (strpos($fieldName, '.') === false) {
 				$fieldName = $Model->alias . '.' . $fieldName;
 			}
-			if (!empty($fieldValue) || (String)$fieldValue !== '') {
+			if ((String)$fieldValue !== '') {
 				$cond[$fieldName] = $fieldValue;
+			} elseif (isset($data[$field['name']]) && !empty($field['allowEmpty'])) {
+				$schema = $Model->schema($field['name']);
+				if ($schema) {
+					$cond[$fieldName] = $schema['default'];
+				} else {
+					$cond[$fieldName] = $fieldValue;
+				}
 			}
 		}
 		if (count($cond) > 1) {
@@ -348,7 +364,7 @@ class SearchableBehavior extends ModelBehavior {
 /**
  * Add Conditions based expressions to search conditions.
  *
- * @param Object $Model  Instance of AppModel
+ * @param Model $Model  Instance of AppModel
  * @param array $conditions Existing conditions.
  * @param array $data Data for a field.
  * @param array $field Info for field.
@@ -371,7 +387,7 @@ class SearchableBehavior extends ModelBehavior {
 /**
  * Add Conditions based query to search conditions.
  *
- * @param Object $Model  Instance of AppModel
+ * @param Model $Model  Instance of AppModel
  * @param array $conditions Existing conditions.
  * @param array $data Data for a field.
  * @param array $field Info for field.
@@ -391,7 +407,7 @@ class SearchableBehavior extends ModelBehavior {
 /**
  * Add Conditions based subquery to search conditions.
  *
- * @param Object $Model  Instance of AppModel
+ * @param Model $Model  Instance of AppModel
  * @param array $conditions Existing conditions.
  * @param array $data Data for a field.
  * @param array $field Info for field.
@@ -411,11 +427,11 @@ class SearchableBehavior extends ModelBehavior {
 
 /**
  * Helper method for getQuery.
- * extension of dbosource method. Create association query.
+ * extension of dbo source method. Create association query.
  *
- * @param AppModel $Model
+ * @param Model $Model
  * @param array $queryData
- * @param integer $recursive
+ * @return string
  */
 	protected function _queryGet(Model $Model, $queryData = array()) {
 		/** @var DboSource $db  */
@@ -424,7 +440,6 @@ class SearchableBehavior extends ModelBehavior {
 		$recursive = null;
 		$byPass = false;
 		$null = null;
-		$array = array();
 		$linkedModels = array();
 
 		if (isset($queryData['recursive'])) {
