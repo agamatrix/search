@@ -1,11 +1,11 @@
 <?php
 /**
- * Copyright 2009-2010, Cake Development Corporation (http://cakedc.com)
+ * Copyright 2009 - 2013, Cake Development Corporation (http://cakedc.com)
  *
  * Licensed under The MIT License
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright Copyright 2009-2010, Cake Development Corporation (http://cakedc.com)
+ * @copyright Copyright 2009 - 2013, Cake Development Corporation (http://cakedc.com)
  * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 
@@ -72,10 +72,17 @@ class PrgComponent extends Component {
 /**
  * Constructor
  *
- * @param object Controller object
+ * @param ComponentCollection $collection
+ * @param array $settings
  */
 	public function __construct(ComponentCollection $collection, $settings) {
 		$this->controller = $collection->getController();
+
+		$configCommonProcess = (array)Configure::read('Search.Prg.commonProcess');
+		$this->_defaults['commonProcess'] = array_merge($this->_defaults['commonProcess'], $configCommonProcess);
+		$configPresetForm = (array)Configure::read('Search.Prg.presetForm');
+		$this->_defaults['presetForm'] = array_merge($this->_defaults['presetForm'], $configPresetForm);
+
 		$this->_defaults = Set::merge($this->_defaults, $settings);
 		// fix for not throwing warning
 		if (!isset($this->controller->presetVars)) {
@@ -143,6 +150,7 @@ class PrgComponent extends Component {
 		} else {
 			$args = $this->controller->request->query;
 		}
+
 		foreach ($this->controller->presetVars as $field) {
 			if (!isset($args[$field['field']])) {
 				continue;
@@ -164,11 +172,15 @@ class PrgComponent extends Component {
 				$data[$model][$field['formField']] = $result[$searchModel][$field['modelField']];
 
 			} elseif ($field['type'] === 'checkbox') {
-				$values = split('\|', $args[$field['field']]);
+				$values = explode('|', $args[$field['field']]);
 				$data[$model][$field['field']] = $values;
 
 			} elseif ($field['type'] === 'value') {
 				$data[$model][$field['field']] = $args[$field['field']];
+			}
+
+			if ($data[$model][$field['field']] === '' && isset($field['emptyValue'])) {
+				$data[$model][$field['field']] = $field['emptyValue'];
 			}
 
 			if (isset($data[$model][$field['field']]) && $data[$model][$field['field']] !== '') {
@@ -182,7 +194,7 @@ class PrgComponent extends Component {
 	}
 
 /**
- * Restores form params for checkboxs and other url encoded params
+ * Restores form params for checkboxes and other url encoded params
  *
  * @param array
  * @return array
@@ -281,6 +293,8 @@ class PrgComponent extends Component {
 		$defaults = Set::merge($defaults, $this->_defaults['commonProcess']);
 		extract(Set::merge($defaults, $options));
 
+		$paramType = strtolower($paramType);
+
 		if (empty($modelName)) {
 			$modelName = $this->controller->modelClass;
 		}
@@ -315,15 +329,27 @@ class PrgComponent extends Component {
 					if ($filterEmpty) {
 						$params = Set::filter($params);
 					}
+					foreach ($this->controller->presetVars as $presetVar) {
+						$field = $presetVar['name'];
+						if (!isset($params[$field])) {
+							continue;
+						}
+						if (!isset($presetVar['emptyValue']) || $presetVar['emptyValue'] !== $params[$field]) {
+							continue;
+						}
+						$params[$field] = '';
+					}
+
 					$this->connectNamed($params, array());
+
 				} else {
 					$searchParams = array_merge($this->controller->request->query, $searchParams);
 					$searchParams = $this->exclude($searchParams, $excludedParams);
 					if ($filterEmpty) {
 						$searchParams = Set::filter($searchParams);
 					}
-					$params['?'] = $searchParams;
 					$this->connectNamed($params, array());
+					$params['?'] = $searchParams;
 				}
 
 				$params['action'] = $action;
@@ -333,7 +359,7 @@ class PrgComponent extends Component {
 						$params[$key] = $this->controller->request->params[$key];
 					}
 				}
-
+				//die(debug(Router::url($params)));
 				$this->controller->redirect($params);
 			} else {
 				$this->controller->Session->setFlash(__d('search', 'Please correct the errors below.'));
@@ -345,6 +371,7 @@ class PrgComponent extends Component {
 			$this->presetForm(array('model' => $formName, 'paramType' => $paramType));
 		}
 	}
+
 
 /**
  * Parse the configs from the Model (to keep things dry)
